@@ -1,108 +1,54 @@
 //使用Arduino 連接MAX6675熱電偶模組，並實現Modbus RTU Slave通訊，讓Artisan軟體可以透過USB讀取溫度數據
-//安裝 Adafruit MAX6675 library及ModbusRTUSlave library提供者：C. M. Bulliner
-
-
+//安裝 Adafruit MAX6675 library
+//安裝modbus-esp8266 library（by Alexander Emelianov） https://downloads.arduino.cc/libraries/github.com/emelianov/modbus_esp8266-4.1.0.zip
+#include <ModbusRTU.h>
 #include <SPI.h>
-#include <ModbusRTUSlave.h>
 #include <max6675.h>
 
-// MAX6675引腳定義
+// ===== MAX6675 pin =====
 const int thermoSO = 4;
 const int thermoCS = 5;
 const int thermoSCK = 6;
 
-// RS485控制引腳
-const int rs485ControlPin = 2;
-
-// Modbus參數
-const byte slaveId = 1;  // 從站ID
-const long baudRate = 19200;
-const unsigned int modbusDataSize = 20;  // 保持寄存器數量
-
-// 建立物件
 MAX6675 thermocouple(thermoSCK, thermoCS, thermoSO);
-ModbusRTUSlave modbus(Serial, rs485ControlPin);
 
-// 保持寄存器陣列
-uint16_t holdingRegisters[modbusDataSize];
+// ===== Modbus =====
+ModbusRTU mb;
+
+uint16_t regET = 0;  // 40001
+uint16_t regBT = 0;  // 40002
 
 void setup() {
-  // 初始化MAX6675
-  SPI.begin();
-  
-  // 初始化Modbus
-  modbus.configureHoldingRegisters(holdingRegisters, modbusDataSize);
-  modbus.begin(slaveId, baudRate);
-  
-  // 初始化保持寄存器
-  for (int i = 0; i < modbusDataSize; i++) {
-    holdingRegisters[i] = 0;
-  }
-  
-  // RS485控制引腳設定為輸出
-  pinMode(rs485ControlPin, OUTPUT);
-  
-  Serial.begin(19200);
-  Serial.println("MAX6675 Modbus RTU Slave Ready");
-  Serial.print("Slave ID: ");
-  Serial.println(slaveId);
+  Serial.begin(9600);
+
+  // Modbus Slave ID = 1
+  mb.begin(&Serial);
+  mb.slave(1);
+
+  // Holding Registers
+  mb.addHreg(1, regET); // 40001
+  mb.addHreg(2, regBT); // 40002
+
+  delay(500);
 }
 
 void loop() {
-  static unsigned long lastUpdate = 0;
-  const unsigned long updateInterval = 1000;  // 每1秒更新一次
-  
-  // 更新溫度讀取
-  if (millis() - lastUpdate >= updateInterval) {
-    readTemperature();
-    lastUpdate = millis();
-  }
-  
-  // 處理Modbus請求
-  modbus.poll();
-}
+  mb.task();
 
-void readTemperature() {
-  // 讀取攝氏溫度
-  float celsius = thermocouple.readCelsius();
-  
-  // 檢查錯誤
-  if (isnan(celsius) || celsius == NAN) {
-    holdingRegisters[0] = 0xFFFF;  // 錯誤標誌
-    holdingRegisters[1] = 0xFFFF;
-    Serial.println("Error reading thermocouple");
-    return;
-  }
-  
-  // 讀取華氏溫度（可選）
-  float fahrenheit = thermocouple.readFahrenheit();
-  
-  // 將浮點數轉換為兩個16位元寄存器
-  // 寄存器0-1: 攝氏溫度（IEEE 754格式）
-  // 寄存器2-3: 華氏溫度（IEEE 754格式）
-  // 寄存器4: 狀態（0=正常, 1=錯誤）
-  
-  // 轉換攝氏溫度為IEEE 754格式的兩個16位元寄存器
-  uint32_t celsiusBinary;
-  memcpy(&celsiusBinary, &celsius, 4);
-  holdingRegisters[0] = (celsiusBinary >> 16) & 0xFFFF;  // 高16位
-  holdingRegisters[1] = celsiusBinary & 0xFFFF;          // 低16位
-  
-  // 轉換華氏溫度
-  uint32_t fahrenheitBinary;
-  memcpy(&fahrenheitBinary, &fahrenheit, 4);
-  holdingRegisters[2] = (fahrenheitBinary >> 16) & 0xFFFF;
-  holdingRegisters[3] = fahrenheitBinary & 0xFFFF;
-  
-  // 設定狀態寄存器
-  holdingRegisters[4] = 0;  // 正常
-  
-  // 也將攝氏溫度轉換為整數（乘以10以保留一位小數）
-  holdingRegisters[5] = (uint16_t)(celsius * 10);
+  static uint32_t lastRead = 0;
+  if (millis() - lastRead > 500) {   // 500ms 更新一次
+    lastRead = millis();
 
-  Serial.print("Temperature: ");
-  Serial.print(celsius);
-  Serial.print("°C (");
-  Serial.print(holdingRegisters[5]);
-  Serial.println(" x0.1°C)");
+    double tempC = thermocouple.readCelsius();
+
+    if (!isnan(tempC) && tempC > 0 && tempC < 1000) {
+      uint16_t value = (uint16_t)(tempC * 10.0);
+
+      regET = value;
+      regBT = value;
+
+      mb.Hreg(1, regET);
+      mb.Hreg(2, regBT);
+    }
+  }
 }
