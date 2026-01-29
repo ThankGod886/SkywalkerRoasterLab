@@ -1,1 +1,3 @@
+由於ESP32 S3的控制器沒有經典藍牙(Classic Bluetooth)只有低功耗藍牙(BLE)，Artisan如果要用藍芽連接只能使用經典藍牙(Classic Bluetooth)，當電腦端插上這個無線橋接器就可以取代原本的usb線，使用原本的artisan設定檔，讓電腦連上藍芽名稱為ESP32_Skycommand_BLE的控制器，使用artisan來烘焙。
 
+Since the ESP32 S3 controller only has Bluetooth Low Energy (BLE) and no Classic Bluetooth, Artisan can only use Classic Bluetooth for Bluetooth connection. When this wireless bridge is plugged into the computer, it can replace the original USB cable and use the original Artisan configuration file to connect the computer to the controller with the Bluetooth name ESP32_Skycommand_BLE, and then use Artisan for baking.
