@@ -6,3 +6,4 @@
 <p align="center">
 <img src="https://github.com/ThankGod886/SkywalkerRoasterLab/blob/main/TFT_LCD/USB%20Type-A%20%E4%B8%80%E5%88%86%E4%BA%8C%E6%8E%A5%E7%B7%9A%E5%9C%96.png" width="50%">
 </p>
+你可以上淘寶網購買材料或自行用麵包板組裝
